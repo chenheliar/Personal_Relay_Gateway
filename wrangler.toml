@@ -1,0 +1,9 @@
+$schema = "./node_modules/wrangler/config-schema.json"
+name = "personal-gateway"
+compatibility_date = "2026-03-23"
+pages_build_output_dir = "."
+
+[[d1_databases]]
+binding = "DB"
+database_name = "personal-gateway"
+database_id = "1fc1b59a-1474-4b6e-81a0-27ab20ccbe67"

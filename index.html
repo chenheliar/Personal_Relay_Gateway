@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Universal Relay Gateway</title>
+    <meta
+      name="description"
+      content="部署在 Cloudflare Pages + D1 上的个人自用万能中转网关系统，支持可视化管理、账户密码登录与多协议 HTTP 中转。"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Public+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: oklch(0.978 0.007 95);
+        --paper-strong: oklch(0.955 0.01 95);
+        --ink: oklch(0.255 0.022 255);
+        --ink-soft: oklch(0.45 0.015 255);
+        --line: oklch(0.84 0.012 90);
+        --accent: oklch(0.57 0.05 236);
+        --accent-soft: oklch(0.96 0.015 236);
+        --shadow: 0 16px 40px color-mix(in oklab, var(--ink) 8%, transparent);
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Public Sans", sans-serif;
+        background:
+          radial-gradient(circle at top left, color-mix(in oklab, var(--accent) 10%, transparent), transparent 30%),
+          linear-gradient(180deg, var(--paper), var(--paper-strong));
+        color: var(--ink);
+      }
+
+      .shell {
+        width: min(1120px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 32px 0 72px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.25fr 0.95fr;
+        gap: clamp(24px, 5vw, 64px);
+        align-items: start;
+        padding: 40px 0 48px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 12px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+        background: color-mix(in oklab, white 50%, transparent);
+      }
+
+      h1 {
+        margin: 18px 0 18px;
+        font-family: "Newsreader", serif;
+        font-size: clamp(3rem, 7vw, 5.8rem);
+        line-height: 0.92;
+        letter-spacing: -0.045em;
+        font-weight: 600;
+        max-width: 8ch;
+      }
+
+      .hero p {
+        max-width: 60ch;
+        font-size: 1.05rem;
+        line-height: 1.8;
+        color: var(--ink-soft);
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 28px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 48px;
+        padding: 0 18px;
+        border-radius: 16px;
+        text-decoration: none;
+        border: 1px solid var(--line);
+        color: var(--ink);
+        background: color-mix(in oklab, white 65%, transparent);
+      }
+
+      .button.primary {
+        background: var(--ink);
+        color: var(--paper);
+        border-color: transparent;
+      }
+
+      .panel {
+        padding: 24px;
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: color-mix(in oklab, white 70%, transparent);
+        box-shadow: var(--shadow);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .panel h2,
+      .section h2 {
+        margin: 0 0 10px;
+        font-family: "Newsreader", serif;
+        font-size: clamp(1.7rem, 3vw, 2.4rem);
+        font-weight: 500;
+        letter-spacing: -0.03em;
+      }
+
+      .muted {
+        color: var(--ink-soft);
+        line-height: 1.75;
+      }
+
+      .kpi {
+        padding: 22px;
+        border-radius: 22px;
+        background: color-mix(in oklab, var(--accent-soft) 40%, white);
+        border: 1px solid color-mix(in oklab, var(--line) 75%, var(--accent));
+      }
+
+      .kpi strong {
+        display: block;
+        margin-top: 10px;
+        font-size: 1.5rem;
+      }
+
+      .section {
+        padding-top: 28px;
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .code {
+        padding: 18px;
+        border-radius: 20px;
+        background: color-mix(in oklab, white 55%, transparent);
+        border: 1px solid var(--line);
+        font-size: 0.94rem;
+        line-height: 1.7;
+        overflow: auto;
+      }
+
+      @media (max-width: 920px) {
+        .hero,
+        .grid,
+        .cards {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <span class="eyebrow">Personal Relay · Cloudflare Pages · D1</span>
+          <h1>个人自用万能中转网关</h1>
+          <p>
+            面向个人维护者的统一网络出口。它把 OpenAI、Gemini、npm、Docker Registry
+            等 HTTP/S 服务汇成一个干净域名，同时提供一个响应式后台，用来登录、管理、启停和更新所有转发路由。
+          </p>
+          <div class="actions">
+            <a class="button primary" href="/admin/">进入管理后台</a>
+            <a class="button" href="https://developers.cloudflare.com/pages/" target="_blank" rel="noreferrer">Cloudflare Pages</a>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>当前系统能力</h2>
+          <p class="muted">
+            适合做 REST、SSE、上传下载、镜像拉取、包管理 API 等 HTTP 类请求中转。所有路由数据与后台账户均存储在
+            D1 中。
+          </p>
+          <div class="grid">
+            <div class="kpi">
+              响应式后台
+              <strong>/admin</strong>
+            </div>
+            <div class="kpi">
+              认证方式
+              <strong>账号 + 密码</strong>
+            </div>
+            <div class="kpi">
+              存储引擎
+              <strong>D1 Database</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>推荐挂载方式</h2>
+        <div class="cards">
+          <div class="panel">
+            <p class="muted">OpenAI / Gemini 等 API 服务建议使用路径前缀转发，便于本地 SDK 直接改 base URL。</p>
+            <div class="code">
+              /openai  → https://api.openai.com
+              <br />
+              /gemini  → https://generativelanguage.googleapis.com
+            </div>
+          </div>
+          <div class="panel">
+            <p class="muted">npm / Docker Registry 这类镜像场景也可按路径映射，后续在客户端只需换成你的网关域名。</p>
+            <div class="code">
+              /npm     → https://registry.npmjs.org
+              <br />
+              /docker  → https://registry-1.docker.io
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
