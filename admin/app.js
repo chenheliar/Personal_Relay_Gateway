@@ -1,9 +1,35 @@
+const REQUEST_TIMEOUT_MS = 20000;
+const RESERVED_PATHS = ["/admin", "/api", "/functions", "/assets", "/favicon.ico"];
+
 const state = {
   initialized: false,
   session: null,
   routes: [],
   editingId: null,
   busy: false,
+  isOffline: !navigator.onLine,
+  lastFocusedElement: null,
+};
+
+const messages = {
+  setupTitle: "初始化管理员账户",
+  loginTitle: "登录管理后台",
+  defaultFormHint: "支持中文、日文、韩文、emoji 和长路径；保存失败时会保留你已输入的内容。",
+  offline: "当前网络连接已断开。你仍可查看已渲染内容，但提交和刷新会失败。",
+  backOnline: "网络已恢复，可以继续操作。",
+  loading: "正在加载数据…",
+  noDescription: "未填写描述。",
+  unnamedRoute: "未命名路由",
+  directPassThrough: "完全透传",
+  stripPrefixOn: "去掉前缀",
+  stripPrefixOff: "保留前缀",
+  enabled: "已启用",
+  disabled: "已停用",
+  invalidJsonObject: "注入请求头必须是合法的 JSON 对象。",
+  invalidJsonArray: "移除请求头必须是合法的 JSON 数组。",
+  invalidTargetBase: "目标地址必须是有效的 http 或 https URL。",
+  invalidMountPath: "挂载路径必须以 / 开头，且不能与系统保留路径冲突。",
+  invalidName: "路由名称至少需要 2 个字符。",
 };
 
 const presets = {
@@ -51,6 +77,7 @@ const presets = {
 
 const authView = document.getElementById("auth-view");
 const dashboardView = document.getElementById("dashboard-view");
+const networkBanner = document.getElementById("network-banner");
 const sessionUser = document.getElementById("session-user");
 const statsGrid = document.getElementById("stats-grid");
 const routesTableBody = document.getElementById("routes-table-body");
@@ -61,22 +88,26 @@ const modalTitle = document.getElementById("modal-title");
 const routeForm = document.getElementById("route-form");
 const routePreview = document.getElementById("route-preview");
 const submitButton = document.getElementById("submit-button");
+const refreshButton = document.getElementById("refresh-button");
 const openCreateButton = document.getElementById("open-create-button");
 const emptyCreateButton = document.getElementById("empty-create-button");
 const closeModalButton = document.getElementById("close-modal-button");
 const cancelModalButton = document.getElementById("cancel-modal-button");
 const logoutButton = document.getElementById("logout-button");
+const formMessage = document.getElementById("form-message");
 const toast = document.getElementById("toast");
 
-init().catch((error) => showToast(error.message || "初始化失败。", "error"));
+init().catch((error) => showToast(error.message || "初始化失败，请刷新页面后重试。", "error"));
 
 async function init() {
   bindEvents();
+  updateNetworkBanner();
   await bootstrap();
 }
 
 function bindEvents() {
   routeForm.addEventListener("submit", handleRouteSubmit);
+  refreshButton.addEventListener("click", handleRefresh);
   openCreateButton.addEventListener("click", openCreateModal);
   emptyCreateButton.addEventListener("click", openCreateModal);
   closeModalButton.addEventListener("click", closeModal);
@@ -111,15 +142,40 @@ function bindEvents() {
     button.addEventListener("click", () => applyPreset(button.dataset.preset));
   });
 
+  document.querySelectorAll("input, textarea").forEach((field) => {
+    field.addEventListener("input", () => clearFieldError(field));
+  });
+
   ["route-mountPath", "route-targetBase"].forEach((id) => {
     document.getElementById(id).addEventListener("input", updatePreview);
   });
 
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !routeModal.classList.contains("hidden")) {
-      closeModal();
-    }
+  window.addEventListener("offline", () => {
+    state.isOffline = true;
+    updateNetworkBanner();
+    showToast(messages.offline, "error");
   });
+
+  window.addEventListener("online", () => {
+    state.isOffline = false;
+    updateNetworkBanner();
+    showToast(messages.backOnline, "success");
+  });
+
+  document.addEventListener("keydown", handleDocumentKeydown);
+}
+
+function handleDocumentKeydown(event) {
+  if (routeModal.classList.contains("hidden")) return;
+
+  if (event.key === "Escape") {
+    closeModal();
+    return;
+  }
+
+  if (event.key === "Tab") {
+    trapFocus(event, routeModal);
+  }
 }
 
 async function bootstrap() {
@@ -140,7 +196,7 @@ async function bootstrap() {
 
     await loadDashboard();
   } catch (error) {
-    renderFatalState(error.message || "系统初始化失败，请刷新后重试。");
+    renderFatalState(error.message || "系统初始化失败，请刷新页面后重试。");
   }
 }
 
@@ -167,9 +223,9 @@ function renderSetup() {
   authView.innerHTML = `
     <div class="auth-card">
       <span class="eyebrow">First Run</span>
-      <h2>初始化管理员账户</h2>
+      <h2>${messages.setupTitle}</h2>
       <p class="muted">当前 D1 数据库中还没有管理员。创建第一个账户后即可进入完整后台。</p>
-      <form id="setup-form" class="auth-form">
+      <form id="setup-form" class="auth-form" novalidate>
         <label>
           <span>管理员用户名</span>
           <input
@@ -193,6 +249,7 @@ function renderSetup() {
             required
           />
         </label>
+        <p class="helper-text">用户名支持字母、数字、点、下划线与短横线；密码至少 10 位。</p>
         <button class="button primary" type="submit" data-auth-submit>创建并登录</button>
       </form>
     </div>
@@ -203,12 +260,16 @@ function renderSetup() {
     const button = event.currentTarget.querySelector("[data-auth-submit]");
 
     try {
-      setBusy(button, true, "创建中...");
+      if (state.isOffline) {
+        throw new Error(messages.offline);
+      }
+
+      setBusy(button, true, "创建中…");
       const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
       const result = await api("/api/auth/setup", { method: "POST", body: payload });
       state.initialized = true;
       state.session = result.session;
-      showToast("管理员已创建。", "success");
+      showToast("管理员账户已创建。", "success");
       await loadDashboard();
     } catch (error) {
       showToast(error.message || "初始化管理员失败。", "error");
@@ -224,9 +285,9 @@ function renderLogin() {
   authView.innerHTML = `
     <div class="auth-card">
       <span class="eyebrow">Sign In</span>
-      <h2>登录管理后台</h2>
+      <h2>${messages.loginTitle}</h2>
       <p class="muted">使用已经初始化的管理员账户进入后台。</p>
-      <form id="login-form" class="auth-form">
+      <form id="login-form" class="auth-form" novalidate>
         <label>
           <span>用户名</span>
           <input
@@ -248,6 +309,7 @@ function renderLogin() {
             required
           />
         </label>
+        <p class="helper-text">如果登录状态过期，系统会自动要求重新登录。</p>
         <button class="button primary" type="submit" data-auth-submit>登录</button>
       </form>
     </div>
@@ -258,7 +320,11 @@ function renderLogin() {
     const button = event.currentTarget.querySelector("[data-auth-submit]");
 
     try {
-      setBusy(button, true, "登录中...");
+      if (state.isOffline) {
+        throw new Error(messages.offline);
+      }
+
+      setBusy(button, true, "登录中…");
       const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
       const result = await api("/api/auth/login", { method: "POST", body: payload });
       state.session = result.session;
@@ -274,6 +340,7 @@ function renderLogin() {
 
 async function loadDashboard() {
   try {
+    setBusy(refreshButton, true, "刷新中…");
     const overview = await api("/api/overview");
     state.session = overview.user;
     state.routes = overview.routes;
@@ -291,14 +358,17 @@ async function loadDashboard() {
     }
 
     showToast(error.message || "加载后台数据失败。", "error");
+  } finally {
+    setBusy(refreshButton, false, "刷新数据");
   }
 }
 
 function renderStats(stats) {
+  const number = new Intl.NumberFormat("zh-CN");
   const items = [
-    { label: "总路由数", value: stats.totalRoutes },
-    { label: "启用中", value: stats.enabledRoutes },
-    { label: "已停用", value: stats.disabledRoutes },
+    { label: "总路由数", value: number.format(stats.totalRoutes || 0) },
+    { label: "启用中", value: number.format(stats.enabledRoutes || 0) },
+    { label: "已停用", value: number.format(stats.disabledRoutes || 0) },
   ];
 
   statsGrid.innerHTML = items
@@ -323,17 +393,16 @@ function renderRoutes() {
     return;
   }
 
-  routesTableBody.innerHTML = state.routes
-    .map((route) => renderRouteRow(route))
-    .join("");
+  routesTableBody.innerHTML = state.routes.map((route) => renderRouteRow(route)).join("");
 }
 
 function renderRouteRow(route) {
   const mountPath = escapeHtml(route.mount_path);
-  const name = escapeHtml(route.name || "未命名路由");
-  const description = escapeHtml(route.description || "未填写描述。");
+  const name = escapeHtml(route.name || messages.unnamedRoute);
+  const description = escapeHtml(route.description || messages.noDescription);
   const targetBase = escapeHtml(route.target_base);
-  const mode = route.strip_prefix ? "去掉前缀" : "保留前缀";
+  const rewriteState = route.inject_headers && Object.keys(route.inject_headers).length ? "含请求头改写" : messages.directPassThrough;
+  const mode = route.strip_prefix ? messages.stripPrefixOn : messages.stripPrefixOff;
   const accessUrl = `${window.location.origin}${route.mount_path}`;
 
   return `
@@ -356,11 +425,11 @@ function renderRouteRow(route) {
       <td data-label="转发方式">
         <div class="cell-title">
           <strong>${mode}</strong>
-          <div class="helper-inline">${route.inject_headers && Object.keys(route.inject_headers).length ? "含注入头" : "无注入头"}</div>
+          <div class="helper-inline">${rewriteState}</div>
         </div>
       </td>
       <td data-label="状态">
-        <span class="status-badge ${route.enabled ? "enabled" : "disabled"}">${route.enabled ? "已启用" : "已停用"}</span>
+        <span class="status-badge ${route.enabled ? "enabled" : "disabled"}">${route.enabled ? messages.enabled : messages.disabled}</span>
       </td>
       <td data-label="操作">
         <div class="table-actions">
@@ -376,13 +445,13 @@ function openCreateModal() {
   state.editingId = null;
   modalTitle.textContent = "添加新路由";
   routeForm.reset();
+  clearFormState();
   document.getElementById("route-id").value = "";
   document.getElementById("route-stripPrefix").checked = true;
   document.getElementById("route-enabled").checked = true;
   document.getElementById("route-injectHeaders").value = "{}";
   document.getElementById("route-removeHeaders").value = "[]";
   submitButton.textContent = "保存路由";
-  routeForm.removeAttribute("aria-busy");
   updatePreview();
   setModalOpen(true);
   document.getElementById("route-name").focus();
@@ -391,6 +460,7 @@ function openCreateModal() {
 function openEditModal(route) {
   state.editingId = route.id;
   modalTitle.textContent = `编辑路由 #${route.id}`;
+  clearFormState();
   document.getElementById("route-id").value = route.id;
   document.getElementById("route-name").value = route.name || "";
   document.getElementById("route-mountPath").value = route.mount_path || "";
@@ -401,7 +471,6 @@ function openEditModal(route) {
   document.getElementById("route-stripPrefix").checked = Boolean(route.strip_prefix);
   document.getElementById("route-enabled").checked = Boolean(route.enabled);
   submitButton.textContent = "更新路由";
-  routeForm.removeAttribute("aria-busy");
   updatePreview();
   setModalOpen(true);
   document.getElementById("route-name").focus();
@@ -412,12 +481,19 @@ function closeModal() {
 }
 
 function setModalOpen(open) {
+  if (open) {
+    state.lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
+
   routeModal.classList.toggle("hidden", !open);
   routeModal.setAttribute("aria-hidden", String(!open));
   document.body.classList.toggle("modal-open", open);
 
   if (!open) {
     state.editingId = null;
+    if (state.lastFocusedElement) {
+      state.lastFocusedElement.focus();
+    }
   }
 }
 
@@ -437,6 +513,7 @@ function applyPreset(name) {
   document.getElementById("route-removeHeaders").value = preset.removeHeaders;
   document.getElementById("route-stripPrefix").checked = preset.stripPrefix;
   document.getElementById("route-enabled").checked = preset.enabled;
+  clearFormState();
   updatePreview();
   showToast(`已填入 ${preset.name} 预设。`, "success");
 }
@@ -445,53 +522,86 @@ async function handleRouteSubmit(event) {
   event.preventDefault();
   if (state.busy) return;
 
-  const isEditing = Boolean(state.editingId);
-  const payload = {
-    name: document.getElementById("route-name").value.trim(),
-    mountPath: document.getElementById("route-mountPath").value.trim(),
-    targetBase: document.getElementById("route-targetBase").value.trim(),
-    description: document.getElementById("route-description").value.trim(),
-    injectHeaders: document.getElementById("route-injectHeaders").value.trim() || "{}",
-    removeHeaders: document.getElementById("route-removeHeaders").value.trim() || "[]",
-    stripPrefix: document.getElementById("route-stripPrefix").checked,
-    enabled: document.getElementById("route-enabled").checked,
-  };
-
   try {
+    if (state.isOffline) {
+      throw new Error(messages.offline);
+    }
+
+    const payload = validateRouteForm();
+    const isEditing = Boolean(state.editingId);
     state.busy = true;
     routeForm.setAttribute("aria-busy", "true");
-    setBusy(submitButton, true, isEditing ? "更新中..." : "保存中...");
+    setBusy(submitButton, true, isEditing ? "更新中…" : "保存中…");
+    setFormMessage(messages.loading, "info");
 
     if (isEditing) {
-      await api(`/api/routes/${state.editingId}`, {
-        method: "PUT",
-        body: payload,
-      });
+      await api(`/api/routes/${state.editingId}`, { method: "PUT", body: payload });
       showToast("路由已更新。", "success");
     } else {
-      await api("/api/routes", {
-        method: "POST",
-        body: payload,
-      });
+      await api("/api/routes", { method: "POST", body: payload });
       showToast("路由已创建。", "success");
     }
 
     await refreshRoutes();
     closeModal();
   } catch (error) {
+    setFormMessage(error.message || "保存路由失败。", "error");
     showToast(error.message || "保存路由失败。", "error");
   } finally {
     state.busy = false;
     routeForm.removeAttribute("aria-busy");
-    setBusy(submitButton, false, isEditing ? "更新路由" : "保存路由");
+    setBusy(submitButton, false, state.editingId ? "更新路由" : "保存路由");
   }
+}
+
+function validateRouteForm() {
+  const nameField = document.getElementById("route-name");
+  const mountPathField = document.getElementById("route-mountPath");
+  const targetBaseField = document.getElementById("route-targetBase");
+  const injectHeadersField = document.getElementById("route-injectHeaders");
+  const removeHeadersField = document.getElementById("route-removeHeaders");
+
+  const name = nameField.value.trim();
+  if (name.length < 2) {
+    throw withFieldError(nameField, messages.invalidName);
+  }
+
+  const mountPath = normalizeMountPath(mountPathField.value.trim());
+  if (!isValidMountPath(mountPath)) {
+    throw withFieldError(mountPathField, messages.invalidMountPath);
+  }
+
+  let targetBase = "";
+  try {
+    targetBase = normalizeTargetBase(targetBaseField.value.trim());
+  } catch {
+    throw withFieldError(targetBaseField, messages.invalidTargetBase);
+  }
+
+  const injectHeaders = parseJsonField(injectHeadersField, "object", messages.invalidJsonObject);
+  const removeHeaders = parseJsonField(removeHeadersField, "array", messages.invalidJsonArray);
+
+  return {
+    name,
+    mountPath,
+    targetBase,
+    description: document.getElementById("route-description").value.trim(),
+    injectHeaders: JSON.stringify(injectHeaders),
+    removeHeaders: JSON.stringify(removeHeaders),
+    stripPrefix: document.getElementById("route-stripPrefix").checked,
+    enabled: document.getElementById("route-enabled").checked,
+  };
 }
 
 async function deleteRoute(route, button) {
   if (!window.confirm(`确定删除路由 ${route.mount_path} 吗？`)) return;
 
   try {
-    setBusy(button, true, "删除中...");
+    if (state.isOffline) {
+      throw new Error(messages.offline);
+    }
+
+    setBusy(button, true, "删除中…");
     await api(`/api/routes/${route.id}`, { method: "DELETE" });
     showToast("路由已删除。", "success");
     await refreshRoutes();
@@ -511,9 +621,23 @@ async function refreshRoutes() {
   renderRoutes();
 }
 
+async function handleRefresh() {
+  if (state.isOffline) {
+    showToast(messages.offline, "error");
+    return;
+  }
+
+  await loadDashboard();
+  showToast("数据已刷新。", "success");
+}
+
 async function handleLogout() {
   try {
-    setBusy(logoutButton, true, "退出中...");
+    if (state.isOffline) {
+      throw new Error(messages.offline);
+    }
+
+    setBusy(logoutButton, true, "退出中…");
     await api("/api/auth/logout", { method: "POST" });
     state.session = null;
     state.routes = [];
@@ -528,35 +652,70 @@ async function handleLogout() {
 }
 
 function updatePreview() {
-  const mountPath = document.getElementById("route-mountPath").value.trim() || "/example";
+  const mountPath = normalizeMountPath(document.getElementById("route-mountPath").value.trim() || "/example");
   const targetBase = document.getElementById("route-targetBase").value.trim() || "https://upstream.example.com";
   routePreview.textContent = `${window.location.origin}${mountPath.replace(/\/$/, "")}/v1/example → ${targetBase.replace(/\/$/, "")}/v1/example`;
 }
 
 async function api(url, options = {}) {
-  const response = await fetch(url, {
-    method: options.method || "GET",
-    headers: {
-      "content-type": "application/json",
-    },
-    credentials: "same-origin",
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? REQUEST_TIMEOUT_MS);
 
-  if (response.status === 204) return {};
+  try {
+    const response = await fetch(url, {
+      method: options.method || "GET",
+      headers: {
+        "content-type": "application/json",
+        ...(options.headers || {}),
+      },
+      credentials: "same-origin",
+      signal: controller.signal,
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
 
-  const contentType = response.headers.get("content-type") || "";
-  const data = contentType.includes("application/json")
-    ? await response.json()
-    : { success: false, error: await response.text() };
+    if (response.status === 204) {
+      return {};
+    }
 
-  if (!response.ok || !data.success) {
-    const error = new Error(data.error || "请求失败。");
-    error.status = response.status;
-    throw error;
+    const contentType = response.headers.get("content-type") || "";
+    const data = contentType.includes("application/json")
+      ? await response.json()
+      : { success: response.ok, error: await response.text() };
+
+    if (!response.ok || data.success === false) {
+      const error = new Error(normalizeApiError(response.status, data?.error));
+      error.status = response.status;
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("请求超时，请检查网络后重试。");
+    }
+
+    if (!navigator.onLine) {
+      throw new Error(messages.offline);
+    }
+
+    throw error instanceof Error ? error : new Error("请求失败，请稍后重试。");
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function normalizeApiError(status, detail) {
+  if (detail && typeof detail === "string" && detail.trim()) {
+    return detail.trim();
   }
 
-  return data;
+  if (status === 400) return "请求参数不正确，请检查后重试。";
+  if (status === 401) return "登录状态已失效，请重新登录。";
+  if (status === 403) return "你没有权限执行此操作。";
+  if (status === 404) return "请求的资源不存在。";
+  if (status === 429) return "请求过于频繁，请稍后再试。";
+  if (status >= 500) return "服务器暂时不可用，请稍后重试。";
+  return "请求失败，请稍后重试。";
 }
 
 function setBusy(element, busy, label) {
@@ -574,6 +733,118 @@ function showToast(message, tone = "info") {
   toast.classList.remove("hidden");
   clearTimeout(showToast.timer);
   showToast.timer = setTimeout(() => toast.classList.add("hidden"), 3200);
+}
+
+function updateNetworkBanner() {
+  if (state.isOffline) {
+    networkBanner.textContent = messages.offline;
+    networkBanner.dataset.tone = "offline";
+    networkBanner.classList.remove("hidden");
+    return;
+  }
+
+  networkBanner.classList.add("hidden");
+}
+
+function clearFormState() {
+  routeForm.removeAttribute("aria-busy");
+  setFormMessage(messages.defaultFormHint, "info");
+  document.querySelectorAll("#route-form input, #route-form textarea").forEach((field) => clearFieldError(field));
+}
+
+function setFormMessage(message, tone = "info") {
+  formMessage.textContent = message;
+  formMessage.dataset.tone = tone;
+}
+
+function clearFieldError(field) {
+  field.removeAttribute("aria-invalid");
+  field.setCustomValidity("");
+  if (formMessage.dataset.tone === "error") {
+    setFormMessage(messages.defaultFormHint, "info");
+  }
+}
+
+function withFieldError(field, message) {
+  field.setAttribute("aria-invalid", "true");
+  field.setCustomValidity(message);
+  field.reportValidity();
+  field.focus();
+  setFormMessage(message, "error");
+  return new Error(message);
+}
+
+function parseJsonField(field, expectedType, message) {
+  const raw = field.value.trim();
+  if (!raw) {
+    return expectedType === "object" ? {} : [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (expectedType === "object" && Object.prototype.toString.call(parsed) === "[object Object]") {
+      return parsed;
+    }
+    if (expectedType === "array" && Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch {
+    // ignored intentionally
+  }
+
+  throw withFieldError(field, message);
+}
+
+function normalizeMountPath(value) {
+  if (!value) return "";
+  let normalized = value;
+  if (!normalized.startsWith("/")) normalized = `/${normalized}`;
+  normalized = normalized.replace(/\/{2,}/g, "/");
+  if (normalized.length > 1 && normalized.endsWith("/")) {
+    normalized = normalized.slice(0, -1);
+  }
+  return normalized;
+}
+
+function normalizeTargetBase(value) {
+  const url = new URL(value);
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw new Error(messages.invalidTargetBase);
+  }
+  url.pathname = url.pathname.replace(/\/{2,}/g, "/");
+  if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
+    url.pathname = url.pathname.slice(0, -1);
+  }
+  url.hash = "";
+  return url.toString();
+}
+
+function isValidMountPath(mountPath) {
+  if (!mountPath || mountPath === "/") return false;
+  if (!/^\/[A-Za-z0-9._~!$&'()*+,;=:@/-]*$/.test(mountPath)) return false;
+  return !RESERVED_PATHS.some((item) => mountPath === item || mountPath.startsWith(`${item}/`));
+}
+
+function trapFocus(event, container) {
+  const focusable = Array.from(
+    container.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((element) => !element.hasAttribute("disabled") && !element.getAttribute("aria-hidden"));
+
+  if (!focusable.length) return;
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const active = document.activeElement;
+
+  if (event.shiftKey && active === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && active === last) {
+    event.preventDefault();
+    first.focus();
+  }
 }
 
 function escapeHtml(value) {

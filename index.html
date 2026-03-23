@@ -2,7 +2,7 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Universal Relay Gateway</title>
     <meta
       name="description"
@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Public+Sans:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <style>
@@ -19,88 +19,180 @@
         color-scheme: light;
         --paper: oklch(0.978 0.007 95);
         --paper-strong: oklch(0.955 0.01 95);
+        --paper-soft: oklch(0.968 0.01 95);
         --ink: oklch(0.255 0.022 255);
-        --ink-soft: oklch(0.45 0.015 255);
+        --ink-soft: oklch(0.42 0.015 255);
         --line: oklch(0.84 0.012 90);
         --accent: oklch(0.57 0.05 236);
         --accent-soft: oklch(0.96 0.015 236);
         --shadow: 0 16px 40px color-mix(in oklab, var(--ink) 8%, transparent);
+        --space-1: 8px;
+        --space-2: 12px;
+        --space-3: 16px;
+        --space-4: 20px;
+        --space-5: 28px;
+        --space-6: 40px;
+        --space-7: 56px;
+        --space-8: 72px;
+        --font-sans: "Source Sans 3", "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        --text-xs: 0.8125rem;
+        --text-sm: 0.9375rem;
+        --text-body: 1rem;
+        --text-lead: 1.125rem;
+        --text-title: 1.375rem;
       }
 
-      * { box-sizing: border-box; }
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        min-width: 320px;
+        -webkit-text-size-adjust: 100%;
+      }
+
       body {
         margin: 0;
-        font-family: "Public Sans", sans-serif;
+        min-width: 320px;
+        font-family: var(--font-sans);
+        font-size: var(--text-body);
+        line-height: 1.68;
+        font-kerning: normal;
+        color: var(--ink);
         background:
           radial-gradient(circle at top left, color-mix(in oklab, var(--accent) 10%, transparent), transparent 30%),
           linear-gradient(180deg, var(--paper), var(--paper-strong));
-        color: var(--ink);
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        overflow-x: hidden;
+      }
+
+      a,
+      strong,
+      p,
+      h1,
+      h2,
+      code,
+      .lede,
+      .detail-list,
+      .stack {
+        min-width: 0;
       }
 
       .shell {
-        width: min(1120px, calc(100vw - 32px));
+        width: min(1160px, calc(100vw - 24px));
         margin: 0 auto;
-        padding: 32px 0 72px;
-      }
-
-      .hero {
+        padding: clamp(20px, 4vw, 36px) 0 clamp(48px, 8vw, 88px);
         display: grid;
-        grid-template-columns: 1.25fr 0.95fr;
-        gap: clamp(24px, 5vw, 64px);
-        align-items: start;
-        padding: 40px 0 48px;
+        gap: clamp(28px, 5vw, 56px);
       }
 
       .eyebrow {
         display: inline-flex;
         align-items: center;
         gap: 10px;
-        padding: 7px 12px;
+        width: fit-content;
+        max-width: 100%;
+        min-height: 34px;
+        padding: 6px 13px;
         border: 1px solid var(--line);
         border-radius: 999px;
-        font-size: 12px;
+        font-size: var(--text-xs);
+        line-height: 1.25;
+        font-weight: 600;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--ink-soft);
         background: color-mix(in oklab, white 50%, transparent);
+        overflow-wrap: anywhere;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.18fr) minmax(320px, 0.92fr);
+        gap: clamp(28px, 5vw, 68px);
+        align-items: start;
+        padding-block: clamp(20px, 3vw, 36px) clamp(8px, 2vw, 20px);
+      }
+
+      .stack {
+        display: grid;
+        gap: var(--space-4);
+      }
+
+      .hero-copy {
+        gap: clamp(14px, 2.5vw, 22px);
+      }
+
+      h1,
+      h2 {
+        margin: 0;
+        font-family: var(--font-sans);
+        font-weight: 600;
+        letter-spacing: -0.03em;
+        color: var(--ink);
+        text-wrap: balance;
       }
 
       h1 {
-        margin: 18px 0 18px;
-        font-family: "Newsreader", serif;
-        font-size: clamp(3rem, 7vw, 5.8rem);
-        line-height: 0.92;
-        letter-spacing: -0.045em;
-        font-weight: 600;
-        max-width: 8ch;
+        font-size: clamp(2.6rem, 7vw, 5.2rem);
+        line-height: 1.02;
+        max-width: 9ch;
       }
 
-      .hero p {
-        max-width: 60ch;
-        font-size: 1.05rem;
-        line-height: 1.8;
+      h2 {
+        font-size: clamp(1.55rem, 2.8vw, 2.25rem);
+        line-height: 1.12;
+      }
+
+      p {
+        margin: 0;
+      }
+
+      .lede,
+      .muted,
+      .detail-list {
         color: var(--ink-soft);
+        line-height: 1.72;
+        text-wrap: pretty;
+        overflow-wrap: anywhere;
+      }
+
+      .lede {
+        max-width: 60ch;
+        font-size: var(--text-lead);
+        line-height: 1.74;
       }
 
       .actions {
         display: flex;
         flex-wrap: wrap;
-        gap: 12px;
-        margin-top: 28px;
+        gap: var(--space-2);
+        align-items: center;
       }
 
       .button {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 8px;
-        min-height: 48px;
-        padding: 0 18px;
+        min-height: 50px;
+        padding: 12px 20px;
         border-radius: 16px;
-        text-decoration: none;
         border: 1px solid var(--line);
+        background: color-mix(in oklab, white 66%, transparent);
         color: var(--ink);
-        background: color-mix(in oklab, white 65%, transparent);
+        text-decoration: none;
+        text-align: center;
+        font-size: var(--text-sm);
+        font-weight: 600;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+        transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+      }
+
+      .button:hover {
+        transform: translateY(-1px);
+        border-color: color-mix(in oklab, var(--accent) 42%, var(--line));
       }
 
       .button.primary {
@@ -109,71 +201,144 @@
         border-color: transparent;
       }
 
-      .panel {
-        padding: 24px;
+      .surface {
         border: 1px solid var(--line);
         border-radius: 28px;
-        background: color-mix(in oklab, white 70%, transparent);
+        background: color-mix(in oklab, white 72%, transparent);
         box-shadow: var(--shadow);
       }
 
-      .grid {
+      .panel {
+        padding: clamp(22px, 3vw, 30px);
+      }
+
+      .hero-panel {
+        display: grid;
+        gap: clamp(18px, 3vw, 24px);
+      }
+
+      .kpis {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 18px;
-      }
-
-      .panel h2,
-      .section h2 {
-        margin: 0 0 10px;
-        font-family: "Newsreader", serif;
-        font-size: clamp(1.7rem, 3vw, 2.4rem);
-        font-weight: 500;
-        letter-spacing: -0.03em;
-      }
-
-      .muted {
-        color: var(--ink-soft);
-        line-height: 1.75;
+        gap: var(--space-3);
       }
 
       .kpi {
-        padding: 22px;
+        padding: 18px 18px 16px;
         border-radius: 22px;
-        background: color-mix(in oklab, var(--accent-soft) 40%, white);
-        border: 1px solid color-mix(in oklab, var(--line) 75%, var(--accent));
+        border: 1px solid color-mix(in oklab, var(--line) 76%, var(--accent));
+        background: color-mix(in oklab, var(--accent-soft) 44%, white);
+      }
+
+      .kpi span {
+        display: block;
+        font-size: var(--text-xs);
+        font-weight: 600;
+        line-height: 1.35;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
       }
 
       .kpi strong {
         display: block;
         margin-top: 10px;
-        font-size: 1.5rem;
+        font-family: var(--font-sans);
+        font-size: var(--text-title);
+        font-weight: 700;
+        line-height: 1.28;
+        letter-spacing: -0.03em;
+        overflow-wrap: anywhere;
       }
 
-      .section {
-        padding-top: 28px;
+      .sections {
+        display: grid;
+        gap: clamp(24px, 3.8vw, 34px);
+      }
+
+      .section-head {
+        display: grid;
+        gap: 12px;
+        max-width: 60ch;
       }
 
       .cards {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 18px;
+        gap: clamp(16px, 2vw, 22px);
+      }
+
+      .card {
+        padding: clamp(22px, 2.6vw, 28px);
+        display: grid;
+        gap: 16px;
+      }
+
+      .card h2 {
+        font-size: clamp(1.375rem, 2.3vw, 1.9rem);
+      }
+
+      .detail-list {
+        display: grid;
+        gap: 8px;
       }
 
       .code {
-        padding: 18px;
+        padding: 18px 20px;
         border-radius: 20px;
-        background: color-mix(in oklab, white 55%, transparent);
         border: 1px solid var(--line);
-        font-size: 0.94rem;
-        line-height: 1.7;
-        overflow: auto;
+        background: color-mix(in oklab, var(--paper-soft) 55%, white);
+        color: var(--ink);
+        font-size: var(--text-sm);
+        line-height: 1.76;
+        overflow-wrap: anywhere;
+        word-break: break-word;
       }
 
-      @media (max-width: 920px) {
+      .code strong {
+        font-weight: 700;
+      }
+
+      .footer-note {
+        max-width: 58ch;
+        padding-top: var(--space-2);
+      }
+
+      @media (max-width: 960px) {
         .hero,
-        .grid,
+        .kpis,
         .cards {
+          grid-template-columns: 1fr;
+        }
+
+        h1 {
+          max-width: 10ch;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .shell {
+          width: min(calc(100vw - 40px), 1160px);
+          padding-top: 12px;
+          padding-bottom: 40px;
+        }
+
+        .hero {
+          gap: 24px;
+        }
+
+        .panel,
+        .card {
+          padding: 20px 18px;
+          border-radius: 24px;
+        }
+
+        .button {
+          width: 100%;
+        }
+
+        .actions {
+          display: grid;
           grid-template-columns: 1fr;
         }
       }
@@ -182,61 +347,79 @@
   <body>
     <main class="shell">
       <section class="hero">
-        <div>
+        <div class="stack hero-copy">
           <span class="eyebrow">Personal Relay · Cloudflare Pages · D1</span>
           <h1>个人自用万能中转网关</h1>
-          <p>
-            面向个人维护者的统一网络出口。它把 OpenAI、Gemini、npm、Docker Registry
-            等 HTTP/S 服务汇成一个干净域名，同时提供一个响应式后台，用来登录、管理、启停和更新所有转发路由。
+          <p class="lede">
+            面向个人维护者的统一网络出口。它把 OpenAI、Gemini、npm、Docker Registry 等 HTTP 或流式请求汇聚到一个干净域名，同时提供一个可响应、可登录、可维护的后台。
           </p>
           <div class="actions">
             <a class="button primary" href="/admin/">进入管理后台</a>
             <a class="button" href="https://developers.cloudflare.com/pages/" target="_blank" rel="noreferrer">Cloudflare Pages</a>
           </div>
         </div>
-        <div class="panel">
-          <h2>当前系统能力</h2>
-          <p class="muted">
-            适合做 REST、SSE、上传下载、镜像拉取、包管理 API 等 HTTP 类请求中转。所有路由数据与后台账户均存储在
-            D1 中。
-          </p>
-          <div class="grid">
+
+        <aside class="surface panel hero-panel">
+          <div class="section-head">
+            <h2>当前系统能力</h2>
+            <p class="muted">
+              适合处理 REST、SSE、上传下载、镜像拉取与包管理等 HTTP 类请求；路由配置与管理员账户均存储在 D1 中。
+            </p>
+          </div>
+          <div class="kpis">
             <div class="kpi">
-              响应式后台
+              <span>响应式后台</span>
               <strong>/admin</strong>
             </div>
             <div class="kpi">
-              认证方式
+              <span>认证方式</span>
               <strong>账号 + 密码</strong>
             </div>
             <div class="kpi">
-              存储引擎
+              <span>存储引擎</span>
               <strong>D1 Database</strong>
             </div>
           </div>
-        </div>
+        </aside>
       </section>
 
-      <section class="section">
-        <h2>推荐挂载方式</h2>
-        <div class="cards">
-          <div class="panel">
-            <p class="muted">OpenAI / Gemini 等 API 服务建议使用路径前缀转发，便于本地 SDK 直接改 base URL。</p>
-            <div class="code">
-              /openai  → https://api.openai.com
-              <br />
-              /gemini  → https://generativelanguage.googleapis.com
-            </div>
-          </div>
-          <div class="panel">
-            <p class="muted">npm / Docker Registry 这类镜像场景也可按路径映射，后续在客户端只需换成你的网关域名。</p>
-            <div class="code">
-              /npm     → https://registry.npmjs.org
-              <br />
-              /docker  → https://registry-1.docker.io
-            </div>
-          </div>
+      <section class="sections">
+        <div class="section-head">
+          <h2>推荐挂载方式</h2>
+          <p class="muted">
+            常见服务建议按路径前缀转发。这样你只需要替换基础地址，不需要额外修改原始请求头、请求体和调用方式。
+          </p>
         </div>
+
+        <div class="cards">
+          <article class="surface card">
+            <h2>模型 API</h2>
+            <p class="muted">
+              OpenAI 与 Gemini 这类模型接口，适合保留客户端原始鉴权与请求结构，只在网关层替换域名和路径前缀。
+            </p>
+            <div class="code">
+              <strong>/openai</strong> → https://api.openai.com
+              <br />
+              <strong>/gemini</strong> → https://generativelanguage.googleapis.com
+            </div>
+          </article>
+
+          <article class="surface card">
+            <h2>包管理与镜像</h2>
+            <p class="muted">
+              npm 与 Docker Registry 也可以按路径映射，这样客户端只需切换到你的网关域名，后续下载与认证仍从网关继续中转。
+            </p>
+            <div class="code">
+              <strong>/npm</strong> → https://registry.npmjs.org
+              <br />
+              <strong>/docker</strong> → https://registry-1.docker.io
+            </div>
+          </article>
+        </div>
+
+        <p class="muted footer-note">
+          如果你已经完成部署，可以直接进入后台添加或调整路由；如果尚未部署，建议先完成 Pages 与 D1 绑定，再初始化管理员账户。
+        </p>
       </section>
     </main>
   </body>

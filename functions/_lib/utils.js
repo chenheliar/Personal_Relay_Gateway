@@ -51,7 +51,7 @@ export function normalizeMountPath(value) {
 export function normalizeTargetBase(value) {
   const url = new URL(value);
   if (!["http:", "https:"].includes(url.protocol)) {
-    throw new Error("仅支持 http/https 上游地址。");
+    throw new Error("Only http and https upstream URLs are supported.");
   }
   url.pathname = url.pathname.replace(/\/{2,}/g, "/");
   if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
@@ -68,8 +68,8 @@ export function sanitizeRouteInput(payload) {
   const targetBase = normalizeTargetBase(`${payload?.targetBase || ""}`);
   const stripPrefix = payload?.stripPrefix === false ? 0 : 1;
   const enabled = payload?.enabled === false ? 0 : 1;
-  const injectHeaders = normalizeJsonObject(payload?.injectHeaders, "注入请求头");
-  const removeHeaders = normalizeJsonArray(payload?.removeHeaders, "移除请求头");
+  const injectHeaders = normalizeJsonObject(payload?.injectHeaders, "Injected request headers");
+  const removeHeaders = normalizeJsonArray(payload?.removeHeaders, "Removed request headers");
 
   validateRouteName(name);
   validateMountPath(mountPath);
@@ -88,23 +88,23 @@ export function sanitizeRouteInput(payload) {
 
 function validateRouteName(name) {
   if (!name || name.length < 2) {
-    throw new Error("路由名称至少需要 2 个字符。");
+    throw new Error("Route name must be at least 2 characters.");
   }
   if (name.length > 80) {
-    throw new Error("路由名称不能超过 80 个字符。");
+    throw new Error("Route name must not exceed 80 characters.");
   }
 }
 
 function validateMountPath(mountPath) {
   const reserved = ["/admin", "/api", "/functions", "/assets", "/favicon.ico"];
   if (!mountPath || mountPath === "/") {
-    throw new Error("挂载路径不能为空，且不能使用根路径。");
+    throw new Error("Mount path cannot be empty and cannot use the root path.");
   }
   if (!/^\/[A-Za-z0-9._~!$&'()*+,;=:@/-]*$/.test(mountPath)) {
-    throw new Error("挂载路径包含不被允许的字符。");
+    throw new Error("Mount path contains unsupported characters.");
   }
   if (reserved.some((item) => mountPath === item || mountPath.startsWith(`${item}/`))) {
-    throw new Error("挂载路径与系统保留路径冲突。");
+    throw new Error("Mount path conflicts with a reserved system path.");
   }
 }
 
@@ -112,7 +112,7 @@ function normalizeJsonObject(value, label) {
   if (value == null || value === "") return {};
   const parsed = typeof value === "string" ? JSON.parse(value) : value;
   if (Object.prototype.toString.call(parsed) !== "[object Object]") {
-    throw new Error(`${label}必须是 JSON 对象。`);
+    throw new Error(`${label} must be a JSON object.`);
   }
   const normalized = {};
   for (const [key, raw] of Object.entries(parsed)) {
@@ -127,7 +127,7 @@ function normalizeJsonArray(value, label) {
   if (value == null || value === "") return [];
   const parsed = typeof value === "string" ? JSON.parse(value) : value;
   if (!Array.isArray(parsed)) {
-    throw new Error(`${label}必须是 JSON 数组。`);
+    throw new Error(`${label} must be a JSON array.`);
   }
   return parsed.map((item) => `${item}`.trim()).filter(Boolean);
 }

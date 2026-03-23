@@ -24,8 +24,9 @@ const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 export async function setupInitialAdmin(db, request, username, password) {
   const adminCount = await getAdminCount(db);
   if (adminCount > 0) {
-    throw new Error("系统已初始化，不能再次创建首个管理员。");
+    throw new Error("The system has already been initialized.");
   }
+
   validateCredentials(username, password);
   const salt = randomToken(16);
   const passwordHash = await hashPassword(password, salt);
@@ -38,12 +39,14 @@ export async function login(db, request, username, password) {
   await cleanupExpiredSessions(db);
   const admin = await findAdminByUsername(db, username);
   if (!admin) {
-    throw new Error("用户名或密码错误。");
+    throw new Error("Invalid username or password.");
   }
+
   const computed = await hashPassword(password, admin.password_salt);
   if (!timingSafeEqual(computed, admin.password_hash)) {
-    throw new Error("用户名或密码错误。");
+    throw new Error("Invalid username or password.");
   }
+
   return createAuthSession(db, request, admin.id, admin.username);
 }
 
@@ -52,13 +55,16 @@ export async function getCurrentSession(db, request) {
   const cookies = parseCookies(request);
   const token = cookies[sessionCookieName(request)];
   if (!token) return null;
+
   const tokenHash = await sha256Hex(token);
   const session = await getSessionByHash(db, tokenHash);
   if (!session) return null;
+
   if (new Date(session.expires_at).getTime() <= Date.now()) {
     await deleteSessionByHash(db, tokenHash);
     return null;
   }
+
   await touchSession(db, session.id);
   return {
     id: session.id,
@@ -76,6 +82,7 @@ export async function logout(db, request) {
     const tokenHash = await sha256Hex(token);
     await deleteSessionByHash(db, tokenHash);
   }
+
   return clearCookie(sessionCookieName(request), request);
 }
 
@@ -90,10 +97,11 @@ export async function requireAuth(db, request) {
 function validateCredentials(username, password) {
   const normalizedUsername = `${username || ""}`.trim();
   if (!/^[A-Za-z0-9._-]{3,32}$/.test(normalizedUsername)) {
-    throw new Error("用户名需为 3-32 位，仅支持字母、数字、点、下划线、短横线。");
+    throw new Error("Username must be 3-32 characters and may contain letters, numbers, dots, underscores, and hyphens.");
   }
+
   if (`${password || ""}`.length < 10) {
-    throw new Error("密码至少需要 10 个字符。");
+    throw new Error("Password must be at least 10 characters long.");
   }
 }
 

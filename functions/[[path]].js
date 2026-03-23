@@ -40,7 +40,7 @@ export async function onRequest(context) {
   return json(
     {
       success: false,
-      error: "未找到对应的静态资源或代理路由。",
+      error: "No matching static asset or proxy route was found.",
     },
     { status: 404 },
   );
@@ -88,7 +88,7 @@ async function handleApi(context) {
       return json(
         {
           success: true,
-          message: "管理员账户已创建。",
+          message: "Administrator account created.",
           session: result.session,
         },
         {
@@ -108,7 +108,7 @@ async function handleApi(context) {
       return json(
         {
           success: true,
-          message: "登录成功。",
+          message: "Signed in successfully.",
           session: result.session,
         },
         {
@@ -187,7 +187,7 @@ async function handleApi(context) {
       return json(
         {
           success: true,
-          message: "路由已创建。",
+          message: "Route created.",
           route: created,
         },
         {
@@ -203,7 +203,7 @@ async function handleApi(context) {
       await requireAuth(env.DB, request);
       const existing = await getRouteById(env.DB, Number(routeMatch[1]));
       if (!existing) {
-        throw new Error("要更新的路由不存在。");
+        throw new Error("The route you want to update does not exist.");
       }
       const body = await readJson(request);
       const route = sanitizeRouteInput(body);
@@ -212,7 +212,7 @@ async function handleApi(context) {
       return json(
         {
           success: true,
-          message: "路由已更新。",
+          message: "Route updated.",
           route: updated,
         },
         { headers: withCors() },
@@ -224,7 +224,7 @@ async function handleApi(context) {
       await requireAuth(env.DB, request);
       const existing = await getRouteById(env.DB, Number(routeMatch[1]));
       if (!existing) {
-        throw new Error("要删除的路由不存在。");
+        throw new Error("The route you want to delete does not exist.");
       }
       await deleteRoute(env.DB, Number(routeMatch[1]));
       return noContent(withCors());
@@ -244,7 +244,7 @@ async function handleApi(context) {
     return json(
       {
         success: false,
-        error: "未定义的 API 路由。",
+        error: "Undefined API route.",
       },
       {
         status: 404,
@@ -252,12 +252,12 @@ async function handleApi(context) {
       },
     );
   } catch (error) {
-    const message = error?.message || "未知错误";
+    const message = error?.message || "Unknown error";
     const status = message === "UNAUTHORIZED" ? 401 : 400;
     return json(
       {
         success: false,
-        error: message === "UNAUTHORIZED" ? "请先登录管理后台。" : message,
+        error: message === "UNAUTHORIZED" ? "Please sign in to continue." : message,
       },
       {
         status,
@@ -272,12 +272,12 @@ async function requireSameOrigin(request) {
   if (!origin) return;
   const current = new URL(request.url).origin;
   if (origin !== current) {
-    throw new Error("非法来源请求。");
+    throw new Error("Cross-origin request rejected.");
   }
 }
 
 function ensureDatabaseBinding(env) {
   if (!env?.DB || typeof env.DB.prepare !== "function") {
-    throw new Error("D1 数据库尚未绑定，请先在 Cloudflare Pages 项目中绑定变量名为 DB 的 D1 数据库。");
+    throw new Error("The D1 database binding named DB is missing from this Pages project.");
   }
 }
